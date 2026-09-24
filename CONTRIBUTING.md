@@ -1,29 +1,29 @@
 # Contributing
 
-## خوش آمدید
+## Welcome
 
-از مشارکت شما در این پروژه متشکریم. هدف ما ساخت یک ابزار قابل اعتماد و حرفه‌ای برای نصب و مدیریت Hysteria 2 روی سرورهای لینوکس است.
+Thanks for your interest in contributing to this project. The goal is to provide a reliable, production-oriented way to install and manage Hysteria 2 on Linux servers.
 
-## نحوه مشارکت
+## How to contribute
 
-1. پروژه را fork کنید.
-2. یک branch جدید با نام معنی‌دار بسازید.
-3. تغییرات خود را روی branch انجام دهید.
-4. اسکریپت‌های Bash را با `bash -n` بررسی کنید.
-5. در صورت امکان، اجرای `shellcheck` را هم انجام دهید.
-6. یک Pull Request با توضیح دقیق تغییرات بسازید.
+1. Fork the repository.
+2. Create a descriptive feature branch.
+3. Make your changes and keep the code readable.
+4. Validate Bash syntax with `bash -n`.
+5. If available, run `shellcheck` as well.
+6. Open a Pull Request with a clear explanation of the changes.
 
-## استانداردهای توسعه
+## Development standards
 
-- اسکریپت‌های Bash باید با `set -Eeuo pipefail` شروع شوند.
-- برای تولید پیام‌ها از `log` و `warn` استفاده کنید.
-- از دسترسی‌ها و مسیرهای حساس به‌صورت ایمن و با بررسی‌های لازم استفاده کنید.
-- قبل از اعمال تغییرات مهم، یک نسخه پشتیبان از فایل‌های پیکربندی داشته باشید.
-- از تصمیم‌های غیرضروری و پیچیدگی‌های اضافی خودداری کنید.
+- Bash scripts should begin with `set -Eeuo pipefail`.
+- Use clear logging helpers (`log`, `warn`, `die`) for user-facing output.
+- Handle root requirements and filesystem paths safely.
+- Backup important configuration before making destructive changes.
+- Keep the project simple and maintainable.
 
-## تست و اعتبارسنجی
+## Validation
 
-قبل از ارسال PR، حداقل این‌ها را اجرا کنید:
+Before sending a PR, at minimum run:
 
 ```bash
 bash -n hstr2installer
@@ -31,19 +31,19 @@ bash -n install.sh
 bash -n scripts/package-release.sh
 ```
 
-و در صورت موجود بودن:
+If `shellcheck` is installed:
 
 ```bash
 shellcheck .
 ```
 
-## قوانین پذیرش PR
+## PR expectations
 
-- تغییرات باید به‌صورت روشن و مستند ارائه شوند.
-- PRها باید روی تگ‌ها و نسخه‌های قابل انتشار سازگار باشند.
-- اگر تغییر در پیکربندی یا امنیت سرویس ایجاد می‌کند، باید توضیح کافی در PR آمده باشد.
-- کد باید خوانا، ساده و قابل نگهداری باشد.
+- Describe the purpose and scope of the change clearly.
+- Keep changes aligned with the project’s release and deployment model.
+- Highlight any security, configuration, or operational impact in the PR description.
+- Keep the code readable and deterministic.
 
-## تشکر
+## Acknowledgement
 
-مشارکت‌های شما به‌صورت مستقیم در بهبود پروژه و توسعهٔ آن کمک می‌کند.
+Contributions help improve this project and make it more reliable for real-world VPS deployments.

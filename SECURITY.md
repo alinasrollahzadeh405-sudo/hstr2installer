@@ -2,26 +2,27 @@
 
 ## Reporting a vulnerability
 
-اگر مشکل امنیتی یا آسیب‌پذیری در این پروژه پیدا کردید، لطفاً آن را به‌صورت خصوصی گزارش دهید.
+If you discover a security issue or vulnerability in this project, please report it responsibly and privately.
 
-مناسب‌ترین روش‌ها:
+Preferred channels:
 
-- استفاده از GitHub Security Advisories (اگر در تنظیمات repo فعال باشد)
-- ارسال گزارش به maintainers از طریق راه‌های رسمی GitHub
-- مطرح‌کردن مسئله در قالب گزارش خصوصی قبل از انتشار عمومی
+- GitHub Security Advisories (if enabled for the repository)
+- Private contact with the maintainers through official GitHub channels
+- Initial disclosure without public details until a fix is available
 
-## نکات مهم
+## Important guidance
 
-- گزارش‌های حساس را عمومی منتشر نکنید تا قبل از رفع مشکل، امکان بهره‌برداری از آن کاهش یابد.
-- اگر مطمئن نیستید که مشکل امنیتی است یا نه، همچنان می‌توانید به‌صورت خصوصی گزارش دهید.
-- برای سرورها و VPS‌های تولیدی، همیشه آخرین نسخه را استفاده کنید و تنظیمات مربوط به گواهی و احراز هویت را با دقت بررسی کنید.
+- Do not disclose sensitive issues publicly before a fix is prepared.
+- If you are unsure whether something is a security issue, report it privately and let maintainers evaluate it.
+- For production VPS deployments, always keep the latest version, validate authentication values, and confirm TLS and domain settings carefully.
 
 ## Supported versions
 
-در حال حاضر نسخه‌های اصلی و نسخه‌های منتشرشده در GitHub Releaseها در نظر گرفته می‌شوند. برای نسخه‌های قدیمی‌تر، پشتیبانی به‌صورت محدود یا بدون پشتیبانی ممکن است باشد.
+The project supports the latest maintained release published on GitHub Releases and the currently active branch. Older versions may not receive ongoing support.
 
 ## Best practices
 
-- هرگز رمزهای احراز هویت و لینک‌های مشتری را در مخازن عمومی منتشر نکنید.
-- قبل از اجرای Certbot و سرویس Hysteria روی VPS، ورودی‌های دامنه و گواهی را با دقت بررسی کنید.
-- از نسخه‌های رسمی و معتبر باینری Hysteria 2 استفاده کنید.
+- Never publish client passwords, URIs, or authentication secrets in public repositories.
+- Validate domain names and certificate paths before enabling production traffic.
+- Prefer official Hysteria 2 binaries from the upstream project.
+- Keep the server updated and audit config changes before restart.

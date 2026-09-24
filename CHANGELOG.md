@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Uninstall routine and service management menu
 - VPS bootstrap installer (`install.sh`)
 - Release packaging and GitHub Actions automation
+- Security, contribution, and code-of-conduct documentation
 
 ## [1.0.0] - 2026-09-24
 

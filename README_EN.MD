@@ -1,6 +1,6 @@
 # hstr2installer
 
-[🇮🇷 مستندات فارسی](README.md)
+[🇮🇷 مستندات فارسی](README.md) | [CHANGELOG](CHANGELOG.md) | [Security](SECURITY.md) | [Contributing](CONTRIBUTING.md) | [Code of Conduct](CODE_OF_CONDUCT.md)
 
 A production-oriented installer, configurator, and management utility for Hysteria 2, based on the official documentation at [v2.hysteria.network](https://v2.hysteria.network).
 
@@ -34,18 +34,14 @@ A production-oriented installer, configurator, and management utility for Hyster
 ## Installation
 
 ```bash
-git clone https://github.com/alinasrollahzadeh405-sudo/hstr2installer.git
-cd hstr2installer
 chmod +x hstr2installer
 sudo ./hstr2installer
 ```
 
-Alternatively, download the script directly:
+Alternatively, use the bootstrap installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alinasrollahzadeh405-sudo/hstr2installer/main/hstr2installer -o hstr2installer
-chmod +x hstr2installer
-sudo ./hstr2installer
+curl -fsSL https://raw.githubusercontent.com/alinasrollahzadeh405-sudo/hstr2installer/main/install.sh | sudo bash
 ```
 
 ## Main Menu
@@ -61,60 +57,27 @@ sudo ./hstr2installer
 
 ### Preset A — High Speed / Gaming
 
-Creates a port 443 configuration with unlimited bandwidth and proxy masquerade. It is intended for high-throughput and low-latency scenarios. The authentication password is generated securely.
+Uses a 443 listener, high-throughput defaults, and proxy masquerade for strong latency performance and high bandwidth.
 
 ### Preset B — Stealth / Camouflage
 
-Uses proxy masquerade with the following destination:
-
-```text
-https://www.bing.com/
-```
-
-`rewriteHost` is enabled to match the official Hysteria 2 proxy masquerade structure.
+Uses a proxy masquerade destination such as `https://www.bing.com/` to blend traffic with common HTTPS usage.
 
 ### Preset C — Custom / Advanced
 
-Allows manual configuration of:
-
-- Listening port
-- Upload and download limits such as `100 mbps`
-- Masquerade type: `proxy` or `string`
-- Proxy URL or custom response content
-- Authentication password
+Allows manual tuning of port, upload/download limits, masquerade setting, and authentication password.
 
 ## TLS Certificate Flow
-
-Ensure port 80 is reachable and not occupied by another service, then choose option 2. The script runs the required Certbot command:
 
 ```bash
 certbot certonly --standalone -d "${dmn}" --non-interactive --agree-tos -m admin@"${dmn}"
 ```
 
-The certificate paths are written to the server configuration:
-
-```yaml
-tls:
-  cert: /etc/letsencrypt/live/${dmn}/fullchain.pem
-  key: /etc/letsencrypt/live/${dmn}/privkey.pem
-```
-
 ## Client and QR Generation
-
-Choose option 3 and enter a client identifier and password. The generated URI follows the standard format:
 
 ```text
 hy2://${client_pass}@${dmn}:443/?insecure=0&sni=${dmn}#${client_name}
 ```
-
-Generated files are stored at:
-
-```text
-/etc/hysteria/clients/${client_name}.uri
-/etc/hysteria/clients/${client_name}.txt
-```
-
-The URI is also printed in the terminal with a QR code using `qrencode -t ansiutf8`.
 
 ## Service Management
 
@@ -124,36 +87,27 @@ systemctl restart hysteria.service
 journalctl -u hysteria.service -f
 ```
 
-The service unit is located at:
-
-```text
-/etc/systemd/system/hysteria.service
-```
-
 ## Important Paths
 
-| Item | Path |
-|---|---|
-| Binary | `/usr/local/bin/hysteria` |
-| Configuration | `/etc/hysteria/config.yaml` |
-| Stored domain | `/etc/hysteria/domain` |
-| Authentication secret | `/etc/hysteria/auth.secret` |
-| Client files | `/etc/hysteria/clients/` |
-| systemd unit | `/etc/systemd/system/hysteria.service` |
-| Configuration backups | `/etc/hysteria/config.yaml.bak.*` |
+- Binary: `/usr/local/bin/hysteria`
+- Configuration: `/etc/hysteria/config.yaml`
+- Stored domain: `/etc/hysteria/domain`
+- Authentication secret: `/etc/hysteria/auth.secret`
+- Client files: `/etc/hysteria/clients/`
+- systemd unit: `/etc/systemd/system/hysteria.service`
+- Configuration backups: `/etc/hysteria/config.yaml.bak.*`
 
 ## Security and Maintenance
 
 - Configuration and sensitive files are stored with restricted permissions.
 - Do not share authentication passwords or client URIs publicly.
 - A timestamped backup is created before configuration changes.
-- The generated configuration is checked with the official Hysteria binary before service restart.
-- Keep certificate renewal available through `certbot renew`.
-- Port 80 must be available while using Certbot Standalone.
+- Keep certificate renewal enabled via `certbot renew`.
+- Ensure port 80 is free before using Certbot Standalone.
 
 ## Uninstallation
 
-Choose `Uninstall Hysteria 2` from the menu. The command removes the binary, service, configuration, and client files, and asks whether Let's Encrypt certificates should also be removed.
+Choose `Uninstall Hysteria 2` from the menu to remove the binary, service, config, and client files.
 
 ## Official References
 
