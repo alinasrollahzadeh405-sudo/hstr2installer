@@ -1,121 +1,37 @@
 # hstr2installer
 
-[🇮🇷 مستندات فارسی](README.md) | [CHANGELOG](CHANGELOG.md) | [Security](SECURITY.md) | [Contributing](CONTRIBUTING.md) | [Code of Conduct](CODE_OF_CONDUCT.md)
+A production-oriented Hysteria 2 installer and management utility based on the official Hysteria 2 docs.
 
-A production-oriented installer, configurator, and management utility for Hysteria 2, based on the official documentation at [v2.hysteria.network](https://v2.hysteria.network).
+## Overview
 
-## Features
+This project automates the setup of a Hysteria 2 server on Linux hosts, including:
 
-- Enforces execution as `root`
-- Detects `amd64` and `arm64` CPU architectures
-- Downloads the latest official Hysteria 2 binary from the upstream GitHub repository
-- Installs required dependencies: `curl`, `wget`, `jq`, `qrencode`, `certbot`, and `openssl`
-- Generates and validates `/etc/hysteria/config.yaml`
-- Creates, enables, and manages a `systemd` service
-- Interactive English CLI with colored output
-- Three configuration presets:
-  - **Preset A — High Speed / Gaming**
-  - **Preset B — Stealth / Camouflage**
-  - **Preset C — Custom / Advanced**
-- Issues TLS certificates with Certbot Standalone
-- Generates standard `hy2://` client links and terminal QR codes
-- Stores generated client links under `/etc/hysteria/clients`
-- Creates timestamped configuration backups before changes
-- Validates configuration before restarting the service
-- Includes a complete uninstall flow
+- dependency installation
+- architecture detection
+- official binary install
+- config generation
+- user/client generation
+- Certbot TLS handling
+- systemd service lifecycle control
 
 ## Requirements
 
-- A Linux server with one of: `apt`, `dnf`, `yum`, `apk`, `pacman`, or `zypper`
-- `root` or `sudo` access
-- A domain pointing to the server IP
-- The selected port available; the default setup uses port `443`
+- Linux with `apt`, `dnf`, `yum`, `apk`, `pacman`, or `zypper`
+- root access
+- valid domain name pointing to the server
 
 ## Installation
-
-```bash
-chmod +x hstr2installer
-sudo ./hstr2installer
-```
-
-Alternatively, use the bootstrap installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alinasrollahzadeh405-sudo/hstr2installer/main/install.sh | sudo bash
 ```
 
-## Main Menu
-
-1. `Install & Auto-Configure Hysteria 2`
-2. `Issue SSL Certificate (Certbot Standalone)`
-3. `Add User / Generate Client Config & QR Code`
-4. `Manage Service (Start/Stop/Restart/Status)`
-5. `Uninstall Hysteria 2`
-6. `Exit`
-
-## Presets
-
-### Preset A — High Speed / Gaming
-
-Uses a 443 listener, high-throughput defaults, and proxy masquerade for strong latency performance and high bandwidth.
-
-### Preset B — Stealth / Camouflage
-
-Uses a proxy masquerade destination such as `https://www.bing.com/` to blend traffic with common HTTPS usage.
-
-### Preset C — Custom / Advanced
-
-Allows manual tuning of port, upload/download limits, masquerade setting, and authentication password.
-
-## TLS Certificate Flow
+## Usage
 
 ```bash
-certbot certonly --standalone -d "${dmn}" --non-interactive --agree-tos -m admin@"${dmn}"
+sudo ./hstr2installer
 ```
 
-## Client and QR Generation
+## Support
 
-```text
-hy2://${client_pass}@${dmn}:443/?insecure=0&sni=${dmn}#${client_name}
-```
-
-## Service Management
-
-```bash
-systemctl status hysteria.service
-systemctl restart hysteria.service
-journalctl -u hysteria.service -f
-```
-
-## Important Paths
-
-- Binary: `/usr/local/bin/hysteria`
-- Configuration: `/etc/hysteria/config.yaml`
-- Stored domain: `/etc/hysteria/domain`
-- Authentication secret: `/etc/hysteria/auth.secret`
-- Client files: `/etc/hysteria/clients/`
-- systemd unit: `/etc/systemd/system/hysteria.service`
-- Configuration backups: `/etc/hysteria/config.yaml.bak.*`
-
-## Security and Maintenance
-
-- Configuration and sensitive files are stored with restricted permissions.
-- Do not share authentication passwords or client URIs publicly.
-- A timestamped backup is created before configuration changes.
-- Keep certificate renewal enabled via `certbot renew`.
-- Ensure port 80 is free before using Certbot Standalone.
-
-## Uninstallation
-
-Choose `Uninstall Hysteria 2` from the menu to remove the binary, service, config, and client files.
-
-## Official References
-
-- [Hysteria 2 Documentation](https://v2.hysteria.network)
-- [Server Configuration](https://v2.hysteria.network/docs/config/server/)
-- [Full Server Configuration](https://v2.hysteria.network/docs/advanced/Full-Server-Config/)
-- [Official GitHub Releases](https://github.com/apernet/hysteria/releases)
-
-## License
-
-This project is distributed under the license provided in `LICENSE`.
+See the documentation files in this repository for installation, security, contribution, and release notes.
