@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+description: "Choose the most relevant issue template for hstr2installer."
+contact_links:
+  - name: Security issue
+    url: https://github.com/alinasrollahzadeh405-sudo/hstr2installer/security/advisories/new
+    about: Report a security vulnerability privately.
+  - name: Discussions
+    url: https://github.com/alinasrollahzadeh405-sudo/hstr2installer/discussions
+    about: Ask questions, share ideas, or discuss usage.
