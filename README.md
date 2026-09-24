@@ -1,6 +1,6 @@
 # hstr2installer
 
-[🇬🇧 English documentation](README_EN.MD) | [CHANGELOG](CHANGELOG.md) | [Security](SECURITY.md) | [Contributing](CONTRIBUTING.md)
+[🇬🇧 English documentation](README_EN.MD) | [CHANGELOG](CHANGELOG.md) | [Security](SECURITY.md) | [Contributing](CONTRIBUTING.md) | [Code of Conduct](CODE_OF_CONDUCT.md)
 
 یک ابزار نصب، پیکربندی و مدیریت حرفه‌ای Hysteria 2 بر پایه مستندات رسمی [v2.hysteria.network](https://v2.hysteria.network) است.
 
@@ -21,7 +21,7 @@
 - تولید لینک استاندارد `hy2://` و QR Code در ترمینال
 - ذخیره امن لینک‌های کلاینت در `/etc/hysteria/clients`
 - نسخه پشتیبان خودکار از پیکربندی پیشین
-- اعتبارسنجی کانفیگ پیش از راه‌اندازی سرویس
+- اعتبارسنجی کانفیگ پیش از راه‌اندازی سروه
 - امکان حذف کامل Hysteria 2 و فایل‌های وابسته
 
 ## پیش‌نیازها
