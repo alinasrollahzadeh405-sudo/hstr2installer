@@ -1,6 +1,6 @@
 # hstr2installer
 
-[🇬🇧 English documentation](README_EN.MD)
+[🇬🇧 English documentation](README_EN.MD) | [CHANGELOG](CHANGELOG.md) | [Security](SECURITY.md) | [Contributing](CONTRIBUTING.md)
 
 یک ابزار نصب، پیکربندی و مدیریت حرفه‌ای Hysteria 2 بر پایه مستندات رسمی [v2.hysteria.network](https://v2.hysteria.network) است.
 
@@ -14,9 +14,9 @@
 - ساخت، فعال‌سازی و مدیریت سرویس `systemd`
 - رابط تعاملی انگلیسی با خروجی رنگی
 - سه preset تخصصی:
-  - **Preset A — High Speed / Gaming**: مناسب سرعت و تأخیر پایین
-  - **Preset B — Stealth / Camouflage**: دارای TLS masquerade و proxy
-  - **Preset C — Custom / Advanced**: تنظیم دستی پورت، پهنای‌باند، masquerade و رمز عبور
+  - **Preset A — High Speed / Gaming**
+  - **Preset B — Stealth / Camouflage**
+  - **Preset C — Custom / Advanced**
 - صدور گواهی SSL با Certbot در حالت Standalone
 - تولید لینک استاندارد `hy2://` و QR Code در ترمینال
 - ذخیره امن لینک‌های کلاینت در `/etc/hysteria/clients`
@@ -34,18 +34,14 @@
 ## نصب و اجرا
 
 ```bash
-git clone https://github.com/alinasrollahzadeh405-sudo/hstr2installer.git
-cd hstr2installer
 chmod +x hstr2installer
 sudo ./hstr2installer
 ```
 
-یا می‌توانید فایل را مستقیماً دریافت و اجرا کنید:
+یا فایل نصب جداگانه را اجرا کنید:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alinasrollahzadeh405-sudo/hstr2installer/main/hstr2installer -o hstr2installer
-chmod +x hstr2installer
-sudo ./hstr2installer
+curl -fsSL https://raw.githubusercontent.com/alinasrollahzadeh405-sudo/hstr2installer/main/install.sh | sudo bash
 ```
 
 ## منوی اصلی
@@ -61,57 +57,26 @@ sudo ./hstr2installer
 
 ### Preset A — High Speed / Gaming
 
-این preset با پورت 443، پهنای‌باند نامحدود و masquerade پروکسی ایجاد می‌شود و برای سناریوهای سرعت و تأخیر پایین مناسب است. رمز عبور به‌صورت تصادفی و امن تولید می‌شود.
+اینجا روشن است که عملکرد با سرعت بالا، UDP-محور، پورت 443 و پهنای‌باند نامحدود تنظیم می‌شود.
 
 ### Preset B — Stealth / Camouflage
 
-این preset از proxy masquerade با مقصد زیر استفاده می‌کند:
-
-```text
-https://www.bing.com/
-```
-
-همچنین گزینه `rewriteHost` فعال می‌شود تا رفتار proxy مطابق ساختار رسمی Hysteria 2 باشد.
+از proxy masquerade با مقصد `https://www.bing.com/` استفاده می‌شود.
 
 ### Preset C — Custom / Advanced
 
-در این حالت می‌توانید موارد زیر را تعیین کنید:
-
-- پورت شنود
-- محدودیت upload و download مانند `100 mbps`
-- نوع masquerade: `proxy` یا `string`
-- آدرس proxy یا متن پاسخ سفارشی
-- رمز عبور احراز هویت
+در این حالت پورت، bandwidth، masquerade و auth را به‌صورت دستی وارد می‌کنید.
 
 ## صدور گواهی SSL
-
-ابتدا مطمئن شوید پورت 80 در دسترس است و سرویس دیگری آن را اشغال نکرده است. سپس گزینه 2 را انتخاب کنید. اسکریپت دستور رسمی زیر را اجرا می‌کند:
 
 ```bash
 certbot certonly --standalone -d "${dmn}" --non-interactive --agree-tos -m admin@"${dmn}"
 ```
 
-مسیرهای گواهی در کانفیگ به‌صورت زیر ثبت می‌شوند:
-
-```yaml
-tls:
-  cert: /etc/letsencrypt/live/${dmn}/fullchain.pem
-  key: /etc/letsencrypt/live/${dmn}/privkey.pem
-```
-
 ## تولید کلاینت و QR Code
-
-از گزینه 3 استفاده کنید و شناسه و رمز عبور کلاینت را وارد کنید. لینک استاندارد تولیدشده به این شکل است:
 
 ```text
 hy2://${client_pass}@${dmn}:443/?insecure=0&sni=${dmn}#${client_name}
-```
-
-فایل‌های خروجی در مسیر زیر ذخیره می‌شوند:
-
-```text
-/etc/hysteria/clients/${client_name}.uri
-/etc/hysteria/clients/${client_name}.txt
 ```
 
 ## مدیریت سرویس
@@ -122,36 +87,26 @@ systemctl restart hysteria.service
 journalctl -u hysteria.service -f
 ```
 
-سرویس از فایل زیر استفاده می‌کند:
-
-```text
-/etc/systemd/system/hysteria.service
-```
-
 ## مسیرهای مهم
 
-| مورد | مسیر |
-|---|---|
-| باینری | `/usr/local/bin/hysteria` |
-| کانفیگ | `/etc/hysteria/config.yaml` |
-| دامنه ذخیره‌شده | `/etc/hysteria/domain` |
-| رمز احراز هویت | `/etc/hysteria/auth.secret` |
-| کلاینت‌ها | `/etc/hysteria/clients/` |
-| سرویس systemd | `/etc/systemd/system/hysteria.service` |
-| بکاپ کانفیگ | `/etc/hysteria/config.yaml.bak.*` |
+- باینری: `/usr/local/bin/hysteria`
+- فایل پیکربندی: `/etc/hysteria/config.yaml`
+- دامنه ذخیره‌شده: `/etc/hysteria/domain`
+- رمز احراز هویت: `/etc/hysteria/auth.secret`
+- کلاینت‌ها: `/etc/hysteria/clients/`
+- سرویس systemd: `/etc/systemd/system/hysteria.service`
+- بکاپ کانفیگ: `/etc/hysteria/config.yaml.bak.*`
 
 ## امنیت و نگهداری
 
 - فایل کانفیگ و اطلاعات حساس با permission محدود ذخیره می‌شوند.
 - رمز عبور را در اختیار افراد غیرمجاز قرار ندهید.
 - پیش از تغییر کانفیگ، نسخه پشتیبان خودکار ایجاد می‌شود.
-- پس از هر تغییر، کانفیگ با دستور بررسی رسمی باینری Hysteria اعتبارسنجی می‌شود.
 - برای تمدید گواهی، اجرای دوره‌ای `certbot renew` را در سیستم فعال نگه دارید.
-- قبل از اجرای Certbot Standalone، مطمئن شوید پورت 80 آزاد است.
 
 ## حذف
 
-از منوی برنامه گزینه `Uninstall Hysteria 2` را انتخاب کنید. این گزینه باینری، سرویس، کانفیگ و فایل‌های کلاینت را حذف می‌کند و درباره حذف گواهی‌های Let's Encrypt نیز سؤال خواهد کرد.
+از منوی برنامه گزینه `Uninstall Hysteria 2` را انتخاب کنید.
 
 ## منابع رسمی
 
