@@ -1,148 +1,162 @@
 #!/usr/bin/env bash
-# hstr2installer - Production-grade Hysteria 2 installer and administration utility.
-# Official config references:
-# https://v2.hysteria.network/docs/config/
-# https://v2.hysteria.network/docs/advanced/Full-Server-Config/
+# hstr2installer - Hysteria 2 installer and administration utility.
+# Based on the official Hysteria 2 documentation:
+# https://v2.hysteria.network/
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly SCRIPT_NAME="hstr2installer"
 readonly CONFIG_DIR="/etc/hysteria"
-readonly STATE_FILE="${CONFIG_DIR}/domain"
 readonly CONFIG_FILE="${CONFIG_DIR}/config.yaml"
-readonly CLIENTS_DIR="${CONFIG_DIR}/clients"
+readonly DOMAIN_FILE="${CONFIG_DIR}/domain"
 readonly SERVICE_FILE="/etc/systemd/system/hysteria.service"
 readonly BINARY_FILE="/usr/local/bin/hysteria"
 readonly RELEASE_API="https://api.github.com/repos/apernet/hysteria/releases/latest"
-readonly REQUIRED_PKGS=(curl wget jq qrencode certbot openssl)
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-BOLD='\033[1m'
-RESET='\033[0m'
+log() {
+  printf '\033[1;32m[%s]\033[0m %s\n' "${SCRIPT_NAME}" "$*"
+}
 
-log() { printf '%b[%s]%b %s\n' "${GREEN}" "${SCRIPT_NAME}" "${RESET}" "$*"; }
-warn() { printf '%b[WARNING]%b %s\n' "${YELLOW}" "${RESET}" "$*" >&2; }
-die() { printf '%b[ERROR]%b %s\n' "${RED}" "${RESET}" "$*" >&2; exit 1; }
-info() { printf '%b%s%b\n' "${BLUE}" "$*" "${RESET}"; }
+warn() {
+  printf '\033[1;33m[WARNING]\033[0m %s\n' "$*" >&2
+}
+
+die() {
+  printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2
+  exit 1
+}
 
 require_root() {
-  [[ "${EUID}" -eq 0 ]] || die "This script must be run as root."
+  if [[ "${EUID}" -ne 0 ]]; then
+    die "This script must be run as root."
+  fi
 }
 
-command_exists() { command -v "$1" >/dev/null 2>&1; }
-
-print_banner() {
-  clear
-  printf '%b\n' "${BOLD}${CYAN}"
-  printf '============================================================\n'
-  printf '  Hysteria 2 Installer and Management Utility\n'
-  printf '  https://v2.hysteria.network\n'
-  printf '============================================================\n'
-  printf '%b\n' "${RESET}"
-}
-
-ensure_pkg_manager() {
-  local pkg
-  for pkg in apt-get dnf yum apk pacman zypper; do
-    if command -v "${pkg}" >/dev/null 2>&1; then
-      printf '%s' "${pkg}"
-      return 0
-    fi
-  done
-  return 1
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
 }
 
 install_dependencies() {
-  local manager
-  manager="$(ensure_pkg_manager || true)"
-  [[ -n "${manager}" ]] || die "No supported package manager found. Install curl, wget, jq, qrencode, certbot and openssl manually."
+  local -a packages=(curl wget jq qrencode certbot openssl)
+  local manager=""
+  local pkg
+
+  for pkg in apt-get dnf yum apk pacman zypper; do
+    if command_exists "${pkg}"; then
+      manager="${pkg}"
+      break
+    fi
+  done
+
+  [[ -n "${manager}" ]] || die "No supported package manager found. Install curl, wget, jq, qrencode, certbot, and openssl manually."
 
   case "${manager}" in
     apt-get)
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y "${REQUIRED_PKGS[@]}"
+      apt-get install -y "${packages[@]}"
       ;;
     dnf|yum)
-      "${manager}" install -y "${REQUIRED_PKGS[@]}"
+      "${manager}" install -y "${packages[@]}"
       ;;
     apk)
-      apk add --no-cache "${REQUIRED_PKGS[@]}"
+      apk add --no-cache "${packages[@]}"
       ;;
     pacman)
-      pacman -Sy --noconfirm "${REQUIRED_PKGS[@]}"
+      pacman -Sy --noconfirm "${packages[@]}"
       ;;
     zypper)
-      zypper --non-interactive install "${REQUIRED_PKGS[@]}"
+      zypper --non-interactive install -y "${packages[@]}"
       ;;
-    *) die "Unsupported package manager: ${manager}" ;;
   esac
-
-  for pkg in "${REQUIRED_PKGS[@]}"; do
-    command_exists "${pkg}" || die "Required dependency missing: ${pkg}"
-  done
 }
 
 validate_domain() {
   local dmn="$1"
-  [[ "${dmn}" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || die "Invalid domain name: ${dmn}"
+  if [[ ! "${dmn}" =~ ^([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]]; then
+    die "Invalid domain name: ${dmn}"
+  fi
 }
 
 read_domain() {
   local dmn=""
-  if [[ -s "${STATE_FILE}" ]]; then
-    dmn="$(<"${STATE_FILE}")"
+
+  if [[ -s "${DOMAIN_FILE}" ]]; then
+    dmn="$(tr -d '\r' < "${DOMAIN_FILE}")"
   fi
+
   if [[ -z "${dmn}" ]]; then
     read -r -p "Enter your domain: " dmn
     validate_domain "${dmn}"
-    printf '%s\n' "${dmn}" > "${STATE_FILE}"
-    chmod 600 "${STATE_FILE}"
+    printf '%s\n' "${dmn}" > "${DOMAIN_FILE}"
+    chmod 600 "${DOMAIN_FILE}"
   fi
+
   printf '%s' "${dmn}"
 }
 
 architecture_asset() {
   case "$(uname -m)" in
-    x86_64|amd64) printf '%s' "amd64" ;;
-    aarch64|arm64) printf '%s' "arm64" ;;
-    *) die "Unsupported CPU architecture: $(uname -m). Supported: amd64 and arm64." ;;
+    x86_64|amd64)
+      printf '%s' "amd64"
+      ;;
+    aarch64|arm64)
+      printf '%s' "arm64"
+      ;;
+    *)
+      die "Unsupported CPU architecture: $(uname -m). Supported architectures are amd64 and arm64."
+      ;;
   esac
 }
 
-install_binary() {
+fetch_hysteria_asset_url() {
   local asset_arch="$1"
+  curl --fail --silent --show-error --location "${RELEASE_API}" \
+    | jq -r --arg arch "${asset_arch}" '
+        .assets[]
+        | select(.name | test("hysteria-linux-" + $arch + "($|\\.tar\\.gz$|\\.zip$|\\.exe$)"))
+        | .browser_download_url' \
+    | head -n 1
+}
+
+install_hysteria_binary() {
+  local asset_arch
+  asset_arch="$(architecture_asset)"
+
   local download_url=""
-  local temporary_file
-  temporary_file="$(mktemp)"
+  local tmp_file=""
+  local tmp_dir=""
+  local extracted_file=""
 
-  download_url="$(curl --fail --silent --show-error --location "${RELEASE_API}" \
-    | jq -er --arg asset "hysteria-linux-${asset_arch}" '.assets[] | select(.name == $asset) | .browser_download_url' \
-    | head -n 1)" || die "Could not find the official Hysteria release asset for ${asset_arch}."
+  download_url="$(fetch_hysteria_asset_url "${asset_arch}")" || die "Could not find the official Hysteria release asset for ${asset_arch}."
+  [[ -n "${download_url}" ]] || die "No compatible Hysteria release asset was found for ${asset_arch}."
 
-  curl --fail --silent --show-error --location --output "${temporary_file}" "${download_url}"
-  install -o root -g root -m 0755 "${temporary_file}" "${BINARY_FILE}"
-  rm -f "${temporary_file}"
+  tmp_file="$(mktemp)"
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -f "${tmp_file}"; rm -rf "${tmp_dir}"' RETURN
 
-  "${BINARY_FILE}" version >/dev/null 2>&1 || die "Downloaded binary failed its self-check."
+  curl --fail --silent --show-error --location --output "${tmp_file}" "${download_url}"
+
+  if [[ "${download_url}" == *.tar.gz ]]; then
+    tar -xzf "${tmp_file}" -C "${tmp_dir}"
+    extracted_file="$(find "${tmp_dir}" -type f -name hysteria -o -name 'hysteria.exe' | head -n 1)"
+    [[ -n "${extracted_file}" ]] || die "Failed to extract the Hysteria binary from the downloaded archive."
+    install -o root -g root -m 0755 "${extracted_file}" "${BINARY_FILE}"
+  elif [[ "${download_url}" == *.zip ]]; then
+    unzip -q "${tmp_file}" -d "${tmp_dir}"
+    extracted_file="$(find "${tmp_dir}" -type f -name hysteria -o -name 'hysteria.exe' | head -n 1)"
+    [[ -n "${extracted_file}" ]] || die "Failed to extract the Hysteria binary from the downloaded archive."
+    install -o root -g root -m 0755 "${extracted_file}" "${BINARY_FILE}"
+  else
+    install -o root -g root -m 0755 "${tmp_file}" "${BINARY_FILE}"
+  fi
+
+  "${BINARY_FILE}" version >/dev/null 2>&1 || die "Downloaded Hysteria binary failed its self-check."
   log "Installed Hysteria 2 from the official GitHub release."
 }
 
-backup_current_config() {
-  local backup_path="${CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
-  if [[ -f "${CONFIG_FILE}" ]]; then
-    cp -a "${CONFIG_FILE}" "${backup_path}"
-    log "Backup saved at ${backup_path}"
-  fi
-}
-
-generate_service_unit() {
+write_service() {
   cat > "${SERVICE_FILE}" <<'UNIT'
 [Unit]
 Description=Hysteria 2 Server
@@ -161,16 +175,10 @@ AmbientCapabilities=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
 UNIT
+
   chmod 0644 "${SERVICE_FILE}"
   systemctl daemon-reload
-  systemctl enable hysteria.service
-}
-
-validate_runtime_config() {
-  local config_path="$1"
-  [[ -f "${config_path}" ]] || die "Configuration file not found: ${config_path}"
-  "${BINARY_FILE}" server --config "${config_path}" check >/dev/null 2>&1 || die "Generated Hysteria config is invalid. Check YAML syntax and paths."
-  log "Hysteria configuration validated successfully."
+  systemctl enable hysteria.service >/dev/null 2>&1 || true
 }
 
 write_config() {
@@ -182,13 +190,11 @@ write_config() {
   local masquerade_type="$6"
   local masquerade_url="$7"
   local rewrite_host="$8"
-  local masquerade_string_content="${9:-Hysteria 2}"
 
   mkdir -p "${CONFIG_DIR}"
-  backup_current_config
 
   cat > "${CONFIG_FILE}" <<EOF
-# Generated by ${SCRIPT_NAME}; see https://v2.hysteria.network/docs/advanced/Full-Server-Config/
+# Generated by ${SCRIPT_NAME}; see https://v2.hysteria.network/
 listen: :${port}
 tls:
   cert: /etc/letsencrypt/live/${dmn}/fullchain.pem
@@ -210,253 +216,197 @@ masquerade:
     rewriteHost: ${rewrite_host}
 EOF
   else
-    cat >> "${CONFIG_FILE}" <<EOF
+    cat >> "${CONFIG_FILE}" <<'EOF'
 masquerade:
   type: string
   string:
-    content: ${masquerade_string_content}
+    content: Hysteria 2
     headers:
       content-type: text/plain
 EOF
   fi
 
   chmod 600 "${CONFIG_FILE}"
-  validate_runtime_config "${CONFIG_FILE}"
-}
-
-show_preset_details() {
-  printf '%b\n' "${WHITE}${BOLD}"
-  printf 'Preset A [High Speed / Gaming]\n'
-  printf '  - UDP-focused, low-latency defaults\n'
-  printf '  - Aggressive BBR / performance tuning\n'
-  printf '  - Max bandwidth allowance\n\n'
-  printf 'Preset B [Stealth / Camouflage]\n'
-  printf '  - TLS masquerade proxy through https://www.bing.com\n'
-  printf '  - Custom HTTP response disguise\n\n'
-  printf 'Preset C [Custom / Advanced]\n'
-  printf '  - Manual port selection\n'
-  printf '  - Manual upload/download cap\n'
-  printf '  - Manual masquerade URL or custom string response\n'
-  printf '  - Manual authentication password\n'
-  printf '%b\n' "${RESET}"
-}
-
-generate_custom_password() {
-  openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32
-}
-
-prompt_bandwidth() {
-  local label="$1"
-  local value
-  read -r -p "${label} [0 mbps]: " value
-  value="${value:-0 mbps}"
-  printf '%s' "${value}"
+  "${BINARY_FILE}" server --config "${CONFIG_FILE}" check || die "Generated Hysteria config is invalid. Fix the configuration and retry."
 }
 
 install_and_configure() {
-  local preset dmn port up down auth_password masquerade_type masquerade_url rewrite_host masquerade_content
+  local preset=""
+  local dmn=""
+  local port="443"
+  local up="0 mbps"
+  local down="0 mbps"
+  local auth_password=""
+  local masquerade_type="proxy"
+  local masquerade_url="https://www.bing.com/"
+  local rewrite_host="true"
+
   dmn="$(read_domain)"
-  show_preset_details
+
+  printf '\nConfiguration Presets:\n  A) High Speed / Gaming\n  B) Stealth / Camouflage\n  C) Custom / Advanced\n'
   read -r -p "Choose a preset [A-C]: " preset
   preset="${preset^^}"
 
   case "${preset}" in
     A)
-      port=443
+      port="443"
       up="0 mbps"
       down="0 mbps"
       masquerade_type="proxy"
       masquerade_url="https://www.bing.com/"
-      rewrite_host=true
-      masquerade_content="Hysteria 2"
-      auth_password="$(generate_custom_password)"
+      rewrite_host="true"
+      auth_password="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)"
       ;;
     B)
-      port=443
+      port="443"
       up="0 mbps"
       down="0 mbps"
       masquerade_type="proxy"
       masquerade_url="https://www.bing.com/"
-      rewrite_host=true
-      masquerade_content="Hysteria 2"
-      auth_password="$(generate_custom_password)"
+      rewrite_host="true"
+      auth_password="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)"
       ;;
     C)
       read -r -p "Listening port [443]: " port
       port="${port:-443}"
-      [[ "${port}" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || die "Invalid listening port: ${port}"
-
-      up="$(prompt_bandwidth "Upload limit")"
-      down="$(prompt_bandwidth "Download limit")"
-
-      read -r -p "Masquerade mode [proxy/string]: " masquerade_type
-      masquerade_type="${masquerade_type:-proxy}"
-
-      if [[ "${masquerade_type}" == "proxy" ]]; then
-        read -r -p "Masquerade proxy URL [https://www.bing.com/]: " masquerade_url
-        masquerade_url="${masquerade_url:-https://www.bing.com/}"
-        rewrite_host=true
-        masquerade_content="Hysteria 2"
-      else
-        read -r -p "Custom masquerade content [Hysteria 2]: " masquerade_content
-        masquerade_content="${masquerade_content:-Hysteria 2}"
-        masquerade_url="https://example.com/"
-        rewrite_host=false
+      if [[ ! "${port}" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+        die "Invalid listening port. Use a number between 1 and 65535."
       fi
 
-      read -r -s -p "Authentication password (leave blank to auto-generate): " auth_password
+      read -r -p "Upload limit (for unlimited use 0 mbps): " up
+      read -r -p "Download limit (for unlimited use 0 mbps): " down
+      up="${up:-0 mbps}"
+      down="${down:-0 mbps}"
+
+      read -r -p "Masquerade proxy URL [https://www.bing.com/]: " masquerade_url
+      masquerade_url="${masquerade_url:-https://www.bing.com/}"
+      masquerade_type="proxy"
+      rewrite_host="true"
+
+      read -r -s -p "Authentication password (blank to generate): " auth_password
       printf '\n'
-      auth_password="${auth_password:-$(generate_custom_password)}"
+      auth_password="${auth_password:-$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)}"
       ;;
-    *) die "Unknown preset: ${preset}" ;;
+    *)
+      die "Unknown preset."
+      ;;
   esac
 
   install_dependencies
-  install_binary "$(architecture_asset)"
-  printf '%s\n' "${dmn}" > "${STATE_FILE}"
-  printf '%s\n' "${auth_password}" > "${CONFIG_DIR}/auth.secret" 2>/dev/null || true
-  write_config "${dmn}" "${port}" "${up}" "${down}" "${auth_password}" "${masquerade_type}" "${masquerade_url}" "${rewrite_host}" "${masquerade_content}"
-  generate_service_unit
+  install_hysteria_binary
+  printf '%s\n' "${dmn}" > "${DOMAIN_FILE}"
+  write_config "${dmn}" "${port}" "${up}" "${down}" "${auth_password}" "${masquerade_type}" "${masquerade_url}" "${rewrite_host}"
+  write_service
   systemctl restart hysteria.service
   log "Hysteria 2 is configured and running."
-  warn "Generate a certificate with option 2 before relying on the TLS paths used by this config."
+  warn "Issue a certificate with option 2 before relying on the TLS paths in the generated config."
 }
 
 issue_certificate() {
-  local dmn
-  read -p "Enter your domain: " dmn
+  local dmn=""
+  read -r -p "Enter your domain: " dmn
   validate_domain "${dmn}"
   mkdir -p "${CONFIG_DIR}"
-  printf '%s\n' "${dmn}" > "${STATE_FILE}"
+  printf '%s\n' "${dmn}" > "${DOMAIN_FILE}"
 
   certbot certonly --standalone -d "${dmn}" --non-interactive --agree-tos -m admin@"${dmn}"
+
   [[ -f "${CONFIG_FILE}" ]] || die "${CONFIG_FILE} does not exist. Run option 1 first."
 
   sed -i -E "s|^  cert:.*$|  cert: /etc/letsencrypt/live/${dmn}/fullchain.pem|; s|^  key:.*$|  key: /etc/letsencrypt/live/${dmn}/privkey.pem|" "${CONFIG_FILE}"
-  validate_runtime_config "${CONFIG_FILE}"
+  "${BINARY_FILE}" server --config "${CONFIG_FILE}" check || die "Updated config validation failed."
   systemctl daemon-reload
   systemctl reload hysteria.service 2>/dev/null || systemctl restart hysteria.service
   log "Certificate installed and Hysteria reloaded."
 }
 
-generate_client_uri() {
-  local dmn="$1"
-  local client_name="$2"
-  local client_pass="$3"
-  printf 'hy2://%s@%s:443/?insecure=0&sni=%s#%s\n' "${client_pass}" "${dmn}" "${dmn}" "${client_name}"
-}
-
-store_client_file() {
-  local client_name="$1"
-  local client_pass="$2"
-  local dmn="$3"
-  local uri
-  uri="$(generate_client_uri "${dmn}" "${client_name}" "${client_pass}")"
-  mkdir -p "${CLIENTS_DIR}"
-  printf '%s\n' "${uri}" > "${CLIENTS_DIR}/${client_name}.txt"
-  printf '%s\n' "${uri}" > "${CLIENTS_DIR}/${client_name}.uri"
-  log "Saved client data to ${CLIENTS_DIR}/${client_name}.uri"
-}
-
 add_user() {
-  local dmn client_name client_pass uri
-  [[ -f "${CONFIG_FILE}" ]] || die "Run option 1 first."
-  dmn="$(read_domain)"
+  local dmn=""
+  local client_name=""
+  local client_pass=""
+  local uri=""
 
+  [[ -f "${CONFIG_FILE}" ]] || die "Run option 1 first."
+
+  dmn="$(read_domain)"
   read -r -p "Client identifier: " client_name
   [[ -n "${client_name}" ]] || die "Client identifier cannot be empty."
 
-  read -r -s -p "Client password (leave blank to auto-generate): " client_pass
+  read -r -s -p "Client password (blank to generate): " client_pass
   printf '\n'
-  client_pass="${client_pass:-$(generate_custom_password)}"
+  client_pass="${client_pass:-$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)}"
 
-  uri="$(generate_client_uri "${dmn}" "${client_name}" "${client_pass}")"
-  store_client_file "${client_name}" "${client_pass}" "${dmn}"
+  uri="hy2://${client_pass}@${dmn}:443/?insecure=0&sni=${dmn}#${client_name}"
+  printf '\033[1;36m%s\033[0m\n' "${uri}"
 
-  printf '%b%s%b\n' "${CYAN}${BOLD}" "${uri}" "${RESET}"
   if command_exists qrencode; then
-    printf '%b\n' "${GREEN}"
     qrencode -t ansiutf8 "${uri}"
-    printf '%b\n' "${RESET}"
   else
-    warn "qrencode is not installed; QR output is unavailable."
+    warn "qrencode is not installed."
   fi
 
-  warn "Make sure the generated password is also added to the server auth backend if you are not using the built-in password field."
+  warn "Store the generated password securely and ensure it matches the server auth settings."
 }
 
 manage_service() {
-  local action
-  printf '%b\n' "${WHITE}${BOLD}"
-  printf '1) Start\n'
-  printf '2) Stop\n'
-  printf '3) Restart\n'
-  printf '4) Status\n'
-  printf '%b\n' "${RESET}"
+  local action=""
+
+  printf '1) Start\n2) Stop\n3) Restart\n4) Status\n'
   read -r -p "Choose an action: " action
 
   case "${action}" in
-    1) systemctl start hysteria.service ;;
-    2) systemctl stop hysteria.service ;;
-    3) systemctl restart hysteria.service ;;
-    4) systemctl status --no-pager hysteria.service ;;
-    *) die "Unknown service action: ${action}" ;;
+    1)
+      systemctl start hysteria.service
+      ;;
+    2)
+      systemctl stop hysteria.service
+      ;;
+    3)
+      systemctl restart hysteria.service
+      ;;
+    4)
+      systemctl status --no-pager hysteria.service
+      ;;
+    *)
+      die "Unknown service action."
+      ;;
   esac
 }
 
-uninstall_hysteria() {
-  local remove_certs="n"
-  printf '%b\n' "${YELLOW}${BOLD}"
-  printf 'This will remove the Hysteria 2 binary, service, config, and clients.\n'
-  printf 'Do you want to remove Let\'s Encrypt certificates too? [y/N]\n'
-  printf '%b\n' "${RESET}"
-  read -r -p "Answer: " remove_certs
-  remove_certs="${remove_certs:-n}"
-
-  if [[ "${remove_certs}" =~ ^[Yy]$ ]]; then
-    rm -rf /etc/letsencrypt/live /etc/letsencrypt/archive /etc/letsencrypt/renewal /etc/letsencrypt
-  fi
-
-  systemctl stop hysteria.service 2>/dev/null || true
-  systemctl disable hysteria.service 2>/dev/null || true
-  rm -f "${BINARY_FILE}"
-  rm -f "${SERVICE_FILE}"
-  rm -rf "${CONFIG_DIR}"
-  systemctl daemon-reload
-  log "Hysteria 2 has been uninstalled."
-}
-
-show_main_menu() {
-  print_banner
-  printf '%b\n' "${WHITE}"
-  printf '1) Install & Auto-Configure Hysteria 2 (with Presets)\n'
-  printf '2) Issue SSL Certificate (Certbot Standalone)\n'
-  printf '3) Add User / Generate Client Config & QR Code\n'
-  printf '4) Manage Service (Start/Stop/Restart/Status)\n'
-  printf '5) Uninstall Hysteria 2\n'
-  printf '6) Exit\n'
-  printf '%b\n' "${RESET}"
-}
-
 main() {
-  local choice
+  local choice=""
+
   require_root
-  install_dependencies
 
   while true; do
-    show_main_menu
-    read -r -p "Select an option [1-6]: " choice
+    printf '\n=== Hysteria 2 Installer ===\n'
+    printf '1) Install & Auto-Configure Hysteria 2 (with Presets)\n'
+    printf '2) Issue SSL Certificate (Certbot Standalone)\n'
+    printf '3) Add User / Generate Client Config & QR Code\n'
+    printf '4) Manage Service (Start/Stop/Restart/Status)\n'
+    printf '5) Exit\n'
+    read -r -p "Select an option [1-5]: " choice
+
     case "${choice}" in
-      1) install_and_configure ;;
-      2) issue_certificate ;;
-      3) add_user ;;
-      4) manage_service ;;
-      5) uninstall_hysteria ;;
-      6) log "Exiting ${SCRIPT_NAME}."; exit 0 ;;
-      *) warn "Please choose a number from 1 to 6." ;;
+      1)
+        install_and_configure
+        ;;
+      2)
+        issue_certificate
+        ;;
+      3)
+        add_user
+        ;;
+      4)
+        manage_service
+        ;;
+      5)
+        exit 0
+        ;;
+      *)
+        warn "Please choose a number from 1 to 5."
+        ;;
     esac
-    printf '\nPress Enter to continue...\n'
-    read -r -p "" __unused
   done
 }
 
