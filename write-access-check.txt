@@ -1,0 +1,2 @@
+# write-access-check
+This file is only to verify repository write access for the current session.
