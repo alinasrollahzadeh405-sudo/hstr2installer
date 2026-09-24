@@ -9,8 +9,9 @@ IFS=$'\n\t'
 
 readonly SCRIPT_NAME="hstr2installer"
 readonly CONFIG_DIR="/etc/hysteria"
-readonly CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 readonly STATE_FILE="${CONFIG_DIR}/domain"
+readonly CONFIG_FILE="${CONFIG_DIR}/config.yaml"
+readonly CLIENTS_DIR="${CONFIG_DIR}/clients"
 readonly SERVICE_FILE="/etc/systemd/system/hysteria.service"
 readonly BINARY_FILE="/usr/local/bin/hysteria"
 readonly RELEASE_API="https://api.github.com/repos/apernet/hysteria/releases/latest"
@@ -49,7 +50,11 @@ print_banner() {
 ensure_pkg_manager() {
   local pkg
   for pkg in apt-get dnf yum apk pacman zypper; do
-    [[ -n "$(command -v "${pkg}" || true)" ]] && { printf '%s' "${pkg}"; return 0; }; done
+    if command -v "${pkg}" >/dev/null 2>&1; then
+      printf '%s' "${pkg}"
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -169,7 +174,16 @@ validate_runtime_config() {
 }
 
 write_config() {
-  local dmn="$1" port="$2" up="$3" down="$4" auth_password="$5" masquerade_type="$6" masquerade_url="$7" rewrite_host="$8"
+  local dmn="$1"
+  local port="$2"
+  local up="$3"
+  local down="$4"
+  local auth_password="$5"
+  local masquerade_type="$6"
+  local masquerade_url="$7"
+  local rewrite_host="$8"
+  local masquerade_string_content="${9:-Hysteria 2}"
+
   mkdir -p "${CONFIG_DIR}"
   backup_current_config
 
@@ -196,11 +210,11 @@ masquerade:
     rewriteHost: ${rewrite_host}
 EOF
   else
-    cat >> "${CONFIG_FILE}" <<'EOF'
+    cat >> "${CONFIG_FILE}" <<EOF
 masquerade:
   type: string
   string:
-    content: Hysteria 2
+    content: ${masquerade_string_content}
     headers:
       content-type: text/plain
 EOF
@@ -213,21 +227,34 @@ EOF
 show_preset_details() {
   printf '%b\n' "${WHITE}${BOLD}"
   printf 'Preset A [High Speed / Gaming]\n'
-  printf '  - Optimized UDP tuning\n'
-  printf '  - Aggressive BBR / modern performance defaults\n'
+  printf '  - UDP-focused, low-latency defaults\n'
+  printf '  - Aggressive BBR / performance tuning\n'
   printf '  - Max bandwidth allowance\n\n'
   printf 'Preset B [Stealth / Camouflage]\n'
-  printf '  - TLS masquerade via https://www.bing.com\n'
+  printf '  - TLS masquerade proxy through https://www.bing.com\n'
   printf '  - Custom HTTP response disguise\n\n'
   printf 'Preset C [Custom / Advanced]\n'
-  printf '  - Manual port\n'
-  printf '  - Manual bandwidth\n'
-  printf '  - Manual masquerade and authentication customization\n'
+  printf '  - Manual port selection\n'
+  printf '  - Manual upload/download cap\n'
+  printf '  - Manual masquerade URL or custom string response\n'
+  printf '  - Manual authentication password\n'
   printf '%b\n' "${RESET}"
 }
 
+generate_custom_password() {
+  openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32
+}
+
+prompt_bandwidth() {
+  local label="$1"
+  local value
+  read -r -p "${label} [0 mbps]: " value
+  value="${value:-0 mbps}"
+  printf '%s' "${value}"
+}
+
 install_and_configure() {
-  local preset dmn port up down auth_password masquerade_type masquerade_url rewrite_host
+  local preset dmn port up down auth_password masquerade_type masquerade_url rewrite_host masquerade_content
   dmn="$(read_domain)"
   show_preset_details
   read -r -p "Choose a preset [A-C]: " preset
@@ -241,7 +268,8 @@ install_and_configure() {
       masquerade_type="proxy"
       masquerade_url="https://www.bing.com/"
       rewrite_host=true
-      auth_password="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)"
+      masquerade_content="Hysteria 2"
+      auth_password="$(generate_custom_password)"
       ;;
     B)
       port=443
@@ -250,26 +278,35 @@ install_and_configure() {
       masquerade_type="proxy"
       masquerade_url="https://www.bing.com/"
       rewrite_host=true
-      auth_password="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)"
+      masquerade_content="Hysteria 2"
+      auth_password="$(generate_custom_password)"
       ;;
     C)
       read -r -p "Listening port [443]: " port
       port="${port:-443}"
       [[ "${port}" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || die "Invalid listening port: ${port}"
 
-      read -r -p "Upload limit (e.g. 100 mbps or 0 mbps): " up
-      read -r -p "Download limit (e.g. 100 mbps or 0 mbps): " down
-      up="${up:-0 mbps}"
-      down="${down:-0 mbps}"
+      up="$(prompt_bandwidth "Upload limit")"
+      down="$(prompt_bandwidth "Download limit")"
 
-      read -r -p "Masquerade proxy URL [https://www.bing.com/]: " masquerade_url
-      masquerade_url="${masquerade_url:-https://www.bing.com/}"
-      masquerade_type="proxy"
-      rewrite_host=true
+      read -r -p "Masquerade mode [proxy/string]: " masquerade_type
+      masquerade_type="${masquerade_type:-proxy}"
+
+      if [[ "${masquerade_type}" == "proxy" ]]; then
+        read -r -p "Masquerade proxy URL [https://www.bing.com/]: " masquerade_url
+        masquerade_url="${masquerade_url:-https://www.bing.com/}"
+        rewrite_host=true
+        masquerade_content="Hysteria 2"
+      else
+        read -r -p "Custom masquerade content [Hysteria 2]: " masquerade_content
+        masquerade_content="${masquerade_content:-Hysteria 2}"
+        masquerade_url="https://example.com/"
+        rewrite_host=false
+      fi
 
       read -r -s -p "Authentication password (leave blank to auto-generate): " auth_password
       printf '\n'
-      auth_password="${auth_password:-$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)}"
+      auth_password="${auth_password:-$(generate_custom_password)}"
       ;;
     *) die "Unknown preset: ${preset}" ;;
   esac
@@ -278,7 +315,7 @@ install_and_configure() {
   install_binary "$(architecture_asset)"
   printf '%s\n' "${dmn}" > "${STATE_FILE}"
   printf '%s\n' "${auth_password}" > "${CONFIG_DIR}/auth.secret" 2>/dev/null || true
-  write_config "${dmn}" "${port}" "${up}" "${down}" "${auth_password}" "${masquerade_type}" "${masquerade_url}" "${rewrite_host}"
+  write_config "${dmn}" "${port}" "${up}" "${down}" "${auth_password}" "${masquerade_type}" "${masquerade_url}" "${rewrite_host}" "${masquerade_content}"
   generate_service_unit
   systemctl restart hysteria.service
   log "Hysteria 2 is configured and running."
@@ -303,8 +340,22 @@ issue_certificate() {
 }
 
 generate_client_uri() {
-  local dmn="$1" client_name="$2" client_pass="$3"
+  local dmn="$1"
+  local client_name="$2"
+  local client_pass="$3"
   printf 'hy2://%s@%s:443/?insecure=0&sni=%s#%s\n' "${client_pass}" "${dmn}" "${dmn}" "${client_name}"
+}
+
+store_client_file() {
+  local client_name="$1"
+  local client_pass="$2"
+  local dmn="$3"
+  local uri
+  uri="$(generate_client_uri "${dmn}" "${client_name}" "${client_pass}")"
+  mkdir -p "${CLIENTS_DIR}"
+  printf '%s\n' "${uri}" > "${CLIENTS_DIR}/${client_name}.txt"
+  printf '%s\n' "${uri}" > "${CLIENTS_DIR}/${client_name}.uri"
+  log "Saved client data to ${CLIENTS_DIR}/${client_name}.uri"
 }
 
 add_user() {
@@ -317,9 +368,10 @@ add_user() {
 
   read -r -s -p "Client password (leave blank to auto-generate): " client_pass
   printf '\n'
-  client_pass="${client_pass:-$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)}"
+  client_pass="${client_pass:-$(generate_custom_password)}"
 
   uri="$(generate_client_uri "${dmn}" "${client_name}" "${client_pass}")"
+  store_client_file "${client_name}" "${client_pass}" "${dmn}"
 
   printf '%b%s%b\n' "${CYAN}${BOLD}" "${uri}" "${RESET}"
   if command_exists qrencode; then
@@ -355,15 +407,14 @@ manage_service() {
 uninstall_hysteria() {
   local remove_certs="n"
   printf '%b\n' "${YELLOW}${BOLD}"
-  printf 'This will remove the Hysteria 2 binary, service, and config.\n'
+  printf 'This will remove the Hysteria 2 binary, service, config, and clients.\n'
   printf 'Do you want to remove Let\'s Encrypt certificates too? [y/N]\n'
   printf '%b\n' "${RESET}"
   read -r -p "Answer: " remove_certs
   remove_certs="${remove_certs:-n}"
 
   if [[ "${remove_certs}" =~ ^[Yy]$ ]]; then
-    rm -rf /etc/letsencrypt/live /etc/letsencrypt/archive /etc/letsencrypt/renewal
-    rm -rf /etc/letsencrypt
+    rm -rf /etc/letsencrypt/live /etc/letsencrypt/archive /etc/letsencrypt/renewal /etc/letsencrypt
   fi
 
   systemctl stop hysteria.service 2>/dev/null || true
