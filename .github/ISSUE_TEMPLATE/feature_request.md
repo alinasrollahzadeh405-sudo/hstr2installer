@@ -1,9 +1,10 @@
 ---
 name: Feature request
 about: Suggest an idea or enhancement for hstr2installer
-title: ""
-labels: [enhancement]
-assignees: ""
+title: ''
+labels: enhancement
+assignees: ''
+
 ---
 
 ## Feature summary
